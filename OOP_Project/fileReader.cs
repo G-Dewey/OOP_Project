@@ -10,38 +10,52 @@ namespace OOP_Project
 {
     interface IFileReader
     {
-        public ErrorOr<int[]> ReadFile(string filePath);
+        public ErrorOr<string[,]> ReadFile(string filePath);
     }
 
 
     class CSVReader : IFileReader
     {
-        public ErrorOr<int[]> ReadFile(string filePath)
+        public ErrorOr<string[,]> ReadFile(string filePath)
         {
             try
             {
                 if (!File.Exists(filePath))
                 {
-                    return Error.NotFound("File not found.");
+                    return Error.NotFound(description: "File not found");
                 }
 
-                // Clear the subdivision dictionary before reading a new file to avoid conflicts with previous data
-                Dictionaries.subdivisionDict.Clear();
+                var lines = File.ReadAllLines(filePath);
 
-                StreamReader reader = new StreamReader(filePath);
+                // Gets the headers and validates them against the header dictionary
+                string[] headers = lines[0].Split(',');
+                ErrorOr<int[]> headerIndexs = headerOrder(headers);
+                if (headerIndexs.IsError){ return headerIndexs.Errors; }
 
-                var lines = File.ReadAllLines("data.csv");
+                string[,] data = new string[lines.Length - 1, headerIndexs.Value.Length];
 
+                // Reads each line (exluding the header). Reorders the values according to the header order and inputs them into data
+                for (int i = 1; i < lines.Length; i++)
+                {
+                    string[] values = lines[i].Split(',');
+                    for (int j = 0; j < headerIndexs.Value.Length; j++)
+                    {
+                        data[i - 1, headerIndexs.Value[j]] = values[j];
+                    }
+                }
 
-
+                return data;
 
             }
             catch (Exception ex)
             {
-                return Error.Unexpected(ex.Message);
+                return Error.Unexpected(description: ex.Message);
             }
         }
 
+
+        // Checks each header against the dictionary and returns an array of the corresponding indices.
+        // Used to determine the order of the headers.
         private ErrorOr<int[]> headerOrder(string[] headers)
         {
             int[] indexArray = new int[headers.Length];
@@ -51,12 +65,14 @@ namespace OOP_Project
             {
                 string trimmed = header.Trim().ToLower();
 
-                if (Dictionaries.headerDict.ContainsKey(trimmed))
+                // Check if the header is recognized. If not, return an error.
+                if (!Dictionaries.HeaderDict.ContainsKey(trimmed))
                 {
-                    return Error.NotFound($"Header '{trimmed}' is not recognized.");
+                    return Error.NotFound(description: $"Header '{trimmed}' is not recognized.");
                 }
 
-                indexArray[index] = Dictionaries.headerDict[trimmed];
+                indexArray[index] = Dictionaries.HeaderDict[trimmed];
+                index++;
             }
 
             return indexArray;
