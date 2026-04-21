@@ -19,11 +19,21 @@ namespace OOP_Project
         {
             var titleLable = new Label()
             {
-                Text = "Welcome to the WestEng Job Shop Scheduler"
-                
+                Text = "Welcome to the WestEng Job Shop Scheduler";
             };
-            
-            Add(titleLable);
+
+            var fileList = Utils.GetFileList();
+        }
+
+
+        private void ErrorCritical(string message)
+        {
+            var errorDialog = new Dialog("Critical Error", message, "OK");
+        }
+
+        private void ErrorWarning(string message)
+        {
+            var errorDialog = new Dialog("Warning", message, "OK");
         }
     }
 }
