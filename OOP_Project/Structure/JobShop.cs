@@ -1,9 +1,10 @@
-﻿using System;
+﻿using ErrorOr;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using ErrorOr;
+using System.Xml.Linq;
 
 namespace OOP_Project
 {
@@ -26,7 +27,15 @@ namespace OOP_Project
         public static ErrorOr<JobShop> Create(string[,] data)
         {
             // Validate data format here (check for correct number of columns, valid types, etc.)
-            return new JobShop(data);
+            try
+            {
+                return new JobShop(data);
+            }
+            catch(Exception ex)
+            { 
+                return Error.Failure(description: $"Failed initailise job shop");
+            }
+            
         }
 
         private void ProcessData(string[,] data)
@@ -58,18 +67,17 @@ namespace OOP_Project
                 // Adds operation to job, if fails logs error and continues
                 if (!Jobs[jobID].addOperation(operationID, subdivision, processingTime))
                 {
-                    Console.WriteLine($"Failed to add operation {operationID} to job {jobID}");
+                    // Send Warning
+                    continue;
                 }
 
                 this.BaseGene.Add(jobID);
             }
-
-            Console.WriteLine($"Processed {data.GetLength(0)} rows of data.");
         }
 
         private int[] ShuffleGene()
         {
-            Random rand = new Random();
+            RandomSolver rand = new RandomSolver();
             return BaseGene.OrderBy(x => rand.Next()).ToArray();
         }
 

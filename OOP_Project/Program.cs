@@ -10,6 +10,7 @@ namespace OOP_Project
     {
         private static void Main(string[] args)
         {
+            Debug.Log("Program Started");
             //// Temp 
             //IFileReader reader = new CSVReader();
 
@@ -47,9 +48,17 @@ namespace OOP_Project
 
             //jobShop.PrintShuffledGene();
 
-            Application.Run<FrontendHandler>();
+            var gui = new FrontendHandler();
 
-            Application.Shutdown();
+            gui.RunApp();
+
+            int i = 0;
+
+            while (true)
+            {
+                i++;
+                Debug.Log($"Main loop iteration: {i}");
+            }
         }
     }
 }

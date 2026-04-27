@@ -9,6 +9,12 @@ namespace OOP_Project
 {
     internal class ErrorHandler
     {
+
+        /*
+         C - Critical Error: A server issue that will return the algorithm to it's nearest safe state
+         S - Selection Error: Issue with data/option selected, will return the algorithm to the selection stage
+         W - Warning: A non critical issue that will not affect the algorithm but should be noted
+         */
         public static bool CheckError(ErrorOr<object> item, char severity)
         {
             if (item.IsError)
@@ -18,16 +24,18 @@ namespace OOP_Project
                 {
                     case 'C':
                         Critical(errorMessage);
+                        Debug.Log($"Critical error occurred: {errorMessage}");
                         return true;
                     case 'W':
                         Warning(errorMessage);
+                        Debug.Log($"Warning occurred: {errorMessage}");
                         return true;
                     default:
-                        Console.WriteLine($"Unknown error severity: {severity}");
+                        Debug.Log($"Unknown error severity: {severity}");
                         return true;
                 }
             }
-            return false;
+            return false; 
         }
 
         public static void Critical(string message)
