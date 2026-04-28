@@ -24,14 +24,11 @@ namespace OOP_Project
                 {
                     case 'C':
                         Critical(errorMessage);
-                        Debug.Log($"Critical error occurred: {errorMessage}");
                         return true;
                     case 'W':
                         Warning(errorMessage);
-                        Debug.Log($"Warning occurred: {errorMessage}");
                         return true;
                     default:
-                        Debug.Log($"Unknown error severity: {severity}");
                         return true;
                 }
             }

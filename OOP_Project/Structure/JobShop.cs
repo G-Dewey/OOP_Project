@@ -77,7 +77,7 @@ namespace OOP_Project
 
         private int[] ShuffleGene()
         {
-            RandomSolver rand = new RandomSolver();
+            Random rand = new Random();
             return BaseGene.OrderBy(x => rand.Next()).ToArray();
         }
 

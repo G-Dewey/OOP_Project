@@ -5,18 +5,22 @@ using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading.Tasks;
 using Terminal.Gui;
-using ErrorOr;  
+using ErrorOr;
+using Terminal.Gui.Graphs;
+using System.Data;
 
 namespace OOP_Project
 {
     public class FrontendHandler : Window
     {
-        private JobShop JobShop;
-        private string DirectoryPath = "jobs";
-        private string[,] JobData;
-        private string FullPath;
-        private string FileName;
-        private string SelectedAlgorithm;
+        private JobShop _jobShop;
+        private string _directoryPath = "jobs";
+        private string[] _dataHeaders;
+        private string[,] _jobData;
+        private string _fullPath;
+        private string _fileName;
+        private string _selectedAlgorithm;
+        private Solver _solver;
 
         public FrontendHandler()
         {
@@ -72,7 +76,7 @@ namespace OOP_Project
         */
         private bool CheckError(IErrorOr item, char severity)
         {
-            Debug.Log($"{item.IsError}");
+            //Debug.Log($"{item.IsError}");
             if (item.IsError)
             {
                 var errorMessage = string.Join(", ", item.Errors.Select(e => e.Description));
@@ -80,21 +84,21 @@ namespace OOP_Project
                 {
                     case 'C':
                         CriticalError(errorMessage);
-                        Debug.Log($"Critical error occurred: {errorMessage}");
+                        //Debug.Log($"Critical error occurred: {errorMessage}");
                         return true;
                     case 'W':
                         Warning(errorMessage);
-                        Debug.Log($"Warning occurred: {errorMessage}");
+                        //Debug.Log($"Warning occurred: {errorMessage}");
                         return true;
                     case 'S':
                         SelectionError(errorMessage);
-                        Debug.Log($"Selection error occurred: {errorMessage}");
+                        //Debug.Log($"Selection error occurred: {errorMessage}");
                         return true;
                     case 'O':
-                        Debug.Log($"Other error occurred: {errorMessage}");
+                        //Debug.Log($"Other error occurred: {errorMessage}");
                         return true;
                     default:
-                        Debug.Log($"Unknown error severity: {severity}");
+                        //Debug.Log($"Unknown error severity: {severity}");
                         return true;
                 }
             }
@@ -118,21 +122,21 @@ namespace OOP_Project
                 return Error.Unexpected(description: "Unsupported file type");
             }
 
-            return reader.ReadFile(FileName);
+            return reader.ReadFile(_fileName);
         }
 
         public bool CreateJobShop()
         {
-            ErrorOr<JobShop> jobShopResult = JobShop.Create(JobData);
+            ErrorOr<JobShop> jobShopResult = JobShop.Create(_jobData);
 
             if (CheckError(jobShopResult, 'C'))
             {
                 return false;
             }
 
-            JobShop = jobShopResult.Value;
+            _jobShop = jobShopResult.Value;
 
-            Debug.Log($"Successfully created JobShop");
+            //Debug.Log($"Successfully created JobShop");
 
             return true;
         }
@@ -144,12 +148,6 @@ namespace OOP_Project
         {
             this.RemoveAll();
 
-            var titleLabel = new Label("Welcome to the WestEng Job Shop Scheduler")
-            {
-                X = Pos.Center(),
-                Y = 1,
-            };
-
             var filesFrame = new FrameView("Available Job Files")
             {
                 X = Pos.Center(),
@@ -158,9 +156,14 @@ namespace OOP_Project
                 Height = Dim.Percent(60)
             };
 
-            ErrorOr<string[]> fileResult = Utils.GetFilesInDir(DirectoryPath, "csv");
+            // Position the title using Pos.Top(filesFrame) and an integer offset (Pos - int is supported)
+            var titleLabel = new Label("Welcome to the WestEng Job Shop Scheduler")
+            {
+                X = Pos.Center(),
+                Y = Pos.Top(filesFrame) - 3,
+            };
 
-            Debug.Log($"File result: {fileResult.IsError}, {fileResult.Value?.Length}");
+            ErrorOr<string[]> fileResult = Utils.GetFilesInDir(_directoryPath, "csv");
 
             if (CheckError(fileResult, 'O'))
             {
@@ -179,26 +182,26 @@ namespace OOP_Project
 
                 listView.OpenSelectedItem += (args) =>
                 {
-                    listView.OpenSelectedItem += (args) =>
+                    // args.Value will be the selected item (string path in this case)
+                    _fileName = args.Value.ToString();
+                    _fullPath = System.IO.Path.GetFullPath(_fileName);
+
+                    ErrorOr<string[,]> FileData = ReadJobFile("csv");
+
+                    if (!CheckError(FileData, 'C'))
                     {
-                        FileName = args.Value.ToString();
+                        // Splits data into headers and the rest of data for easier handling later on
+                        _dataHeaders = Enumerable.Range(0, FileData.Value.GetLength(1))
+                                      .Select(x => FileData.Value[0, x])
+                                      .ToArray();
+                        // DO SAME HERE 
+                        _jobData = FileData.Value;
 
-                        FullPath = System.IO.Path.GetFullPath(System.IO.Path.Combine(DirectoryPath, FileName));
-
-                        // 3. Pass the path to your processing function
-                        Debug.Log($"Selected file: {FullPath}");
-
-                        ErrorOr<string[,]> FileData = ReadJobFile("csv");
-
-                        if (!CheckError(FileData, 'C'))
+                        if (CreateJobShop())
                         {
-                            JobData = FileData.Value;
-                            Debug.Log($"Successfully read file: {FileName} : {JobData}");
-
-                            CreateJobShop();
                             SelectAlgorithmPage();
                         }
-                    };
+                    }
                 };
 
                 filesFrame.Add(listView);
@@ -211,6 +214,90 @@ namespace OOP_Project
         {
             this.RemoveAll();
 
+            var algorithmsFrame = new FrameView("Available Algorithms")
+            {
+                X = Pos.Center(),
+                Y = Pos.Center(),
+                Width = Dim.Percent(60),
+                Height = Dim.Percent(60)
+            };
+
+            var titleLabel = new Label($"Select an algorithm to solve {_fileName}")
+            {
+                X = Pos.Center(),
+                Y = Pos.Top(algorithmsFrame) - 3,
+            };
+
+            string[] algorthims = Globals.AvailableAlgorithms;
+            var listView = new ListView(algorthims)
+            {
+                X = 0,
+                Y = 0,
+                Width = Dim.Fill(),
+                Height = Dim.Fill()
+            };
+
+            listView.OpenSelectedItem += (args) =>
+            {
+                string selectedAlgorithm = args.Value.ToString();
+
+                ErrorOr<Solver> solverResult = Globals.SolverFactory.Create(selectedAlgorithm, _jobShop);
+
+                if (!CheckError(solverResult, 'O'))
+                {
+                    _selectedAlgorithm = selectedAlgorithm;
+                    _solver = solverResult.Value;
+
+                    PreRunOverviewPage();
+                }
+            };
+
+            algorithmsFrame.Add(listView);
+            this.Add(titleLabel, algorithmsFrame);
+        }
+
+        private void PreRunOverviewPage()
+        {
+            this.RemoveAll();
+
+            var titleLabel = new Label("Overview")
+            {
+                X = Pos.Center(),
+                Y = Pos.Top(this) + 1,
+            };
+
+            var fileLabel = new Label($"File: {_fileName}")
+            {
+                X = Pos.Center(),
+                Y = Pos.Top(titleLabel) + 2,
+            };
+
+            var algorithmLabel = new Label($"Selected Algorithm: {_selectedAlgorithm}, {_jobData[0,0]}")
+            {
+                X = Pos.Center(),
+                Y = Pos.Top(fileLabel) + 1,
+            };
+
+            
+            var breakLine = new LineView()
+            {
+                Y = Pos.Top(algorithmLabel) + 2,
+                Width = Dim.Fill(),
+                Orientation = Orientation.Horizontal,
+                Text = "Data Preview"
+            };
+
+            var previewDataTable = new TableView()
+            {
+                X = Pos.Center(),
+                Y = Pos.Top(breakLine) + 1,
+                Width = Dim.Percent(80),
+                Height = Dim.Percent(50),
+            };
+
+            previewDataTable.Style.AlwaysShowHeaders = true;
+
+            this.Add(titleLabel, fileLabel, algorithmLabel, breakLine, previewDataTable);
         }
     }
 }

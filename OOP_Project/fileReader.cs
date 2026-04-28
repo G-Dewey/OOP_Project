@@ -32,7 +32,12 @@ namespace OOP_Project
                 ErrorOr<int[]> headerIndexs = headerOrder(headers);
                 if (headerIndexs.IsError){ return headerIndexs.Errors; }
 
-                string[,] data = new string[lines.Length - 1, headerIndexs.Value.Length];
+                string[,] data = new string[lines.Length, headerIndexs.Value.Length];
+
+                for (int i = 0; i < headerIndexs.Value.Length - 1; i++)
+                {
+                    data[0, i] = headers[headerIndexs.Value[i]];
+                }
 
                 // Reads each line (exluding the header). Reorders the values according to the header order and inputs them into data
                 for (int i = 1; i < lines.Length; i++)

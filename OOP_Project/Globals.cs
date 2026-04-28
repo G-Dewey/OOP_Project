@@ -10,10 +10,8 @@ namespace OOP_Project
     {
         public static DateTime StartTime = new DateTime(2024, 4, 1, 9, 0, 0);
         
-        public static Dictionary<string, Func<ISolver>> Solvers = new Dictionary<string, Func<ISolver>>() 
-        {
-            { "Greedy Hill Climber" , () => new GreedyHillClimberSolver() }, }
-            { "Genetic" , () => new GeneticSolver() }
-        };
+        public static SolverFactory SolverFactory = new SolverFactory();
+
+        public static string[] AvailableAlgorithms = SolverFactory.GetAvailableAlgorithms();
     }
 }

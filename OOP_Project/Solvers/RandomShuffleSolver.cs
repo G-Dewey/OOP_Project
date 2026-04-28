@@ -7,11 +7,11 @@ using System.Threading.Tasks;
 
 namespace OOP_Project
 {
-    internal class GeneticSolver:Solver
+    internal class RandomShuffleSolver : Solver
     {
-        public GeneticSolver(JobShop jobShop) : base(jobShop)
+        public RandomShuffleSolver(JobShop jobShop) : base(jobShop)
         {
-            SolverName = "Genetic";
+            SolverName = "Random Shuffle";
         }
     }
 }

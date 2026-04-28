@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Data;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -37,14 +38,10 @@ namespace OOP_Project
                                      .Where(f => string.Equals(Path.GetExtension(f).ToLowerInvariant(), ext, StringComparison.Ordinal))
                                      .ToArray();
 
-                Debug.Log(files.Length.ToString());
-
                 if (files.Length == 0)
                 {
-                    Debug.Log("called");
                     return Error.NotFound(description: $"No files with extension '{ext}' found in directory '{dir}'.");
                 }
-                Debug.Log("2");
                 return files;
             }
             catch (UnauthorizedAccessException)
@@ -56,5 +53,13 @@ namespace OOP_Project
                 return Error.Unexpected("Cannot access the directory given");
             }
         }
+
+        public static ErrorOr<DataTable> ArrayToDataTable(string[,] data)
+        {
+            DataTable table = new DataTable();
+
+            return table;
+        }
+
     }
 }
