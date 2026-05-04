@@ -54,11 +54,54 @@ namespace OOP_Project
             }
         }
 
-        public static ErrorOr<DataTable> ArrayToDataTable(string[,] data)
+        public static ErrorOr<DataTable> CreateDataTable(string[] headers, string[,] data)
         {
+            // Checks for the length of data 
+            if (headers.Length == 0 | data.GetLength(1) == 0)
+            {
+                return Error.Validation("Invalid data, cannot transform into table");
+            }
+
+            // Checks the number of headers matches the number of columns 
+            if (headers.Length != data.GetLength(1))
+            {
+                return Error.Validation("Headers do not match the number of data columns");
+            }
+
             DataTable table = new DataTable();
 
+            // Add headers
+            foreach(string header in headers)
+            {
+                table.Columns.Add(header, typeof(string));
+            }
+
+            // Addd rows
+
+            for (int i = 0; i < data.GetLength(0); i++)
+            {
+                string[] rowData = new string[data.GetLength(1)];
+                for (int j = 0; j < data.GetLength(1); j++)
+                {
+                    rowData[j] = data[i, j];
+                }
+
+                table.Rows.Add(rowData);
+            
+            }
+
             return table;
+        }
+
+        // All string inputs should be standardised (e.g. machine names) to avoid issues with case sensitivity and whitespace
+        public static string StandardiseString(string input)
+        {
+            return input.Trim().ToLower();
+        }
+
+        public static int CalcTimeSpan(DateTime dt)
+        {
+            return (int)(dt - Globals.StartTime).TotalHours;
         }
 
     }

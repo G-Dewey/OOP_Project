@@ -9,6 +9,7 @@ namespace OOP_Project
 {
     class Operation
     {
+        // TODO ENCAP
         public int OperationID { get; init; }
         public int ParentJobID { get; init; }
         public int LocalID { get; init; }
@@ -61,6 +62,11 @@ namespace OOP_Project
         public string GetTitle()
         {
             return $"Job: {ParentJobID} | Operation: {OperationID})";
+        }
+
+        public string GetName() 
+        {
+            return $"Job {ParentJobID} - Operation {OperationID}";
         }
     }
 }

@@ -3,72 +3,98 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using ErrorOr;
 
 namespace OOP_Project
 {
     internal class Schedule
     {
-        // Machine name -> Operation name -> Start time
-        public Dictionary<string, Dictionary<string, DateTime[]>> ScheduleDict { get; set; } = new();
-        public int totalTime { get; set; }
+        private string[] _machines { get; set; }
+        private List<List<string>> _schedule { get; set; } = new List<List<string>>();
+        private int _makespan { get; set; }
 
-        public void AddMachineToSchedule(string machineName, Dictionary<string, DateTime[]> machineSchedule)
+        private Schedule(JobShop jobShop, int[] gene)
         {
-            if (!ScheduleDict.ContainsKey(machineName))
-            {
-                return;
-            }
+            _machines = jobShop.GetMachineNames();
+            _makespan = jobShop.BuildGene(gene);
+            MakeSchedule(jobShop);
 
-            ScheduleDict.Add(machineName, machineSchedule);
         }
 
-        // Check if all machines have been checked 
+        public static ErrorOr<Schedule> Create(JobShop jobShop, int[] gene)
+        {
+            if (gene == null || gene.Length == 0)
+            {
+                return Error.Validation(description: "Gene cannot be null or empty.");
+            }
 
-    //    // Temp method to output the schedule
-    //    public void PrintSchedule()
-    //    {
-    //        if (ScheduleDict.Count == 0)
-    //        {
-    //            Console.WriteLine("Schedule is empty");
-    //            return;
-    //        }
+            if (jobShop == null)
+            {
+                return Error.Validation(description: "Job shop can not be null.");
+            }
 
-    //        var machines = ScheduleDict.Keys.ToList();
-    //        Console.WriteLine(string.Join(", ", machines));
+            try
+            {
+                return new Schedule(jobShop, gene);
+            }
+            catch (Exception ex)
+            {
+                return Error.Failure(description: $"Failed to create schedule: {ex.Message}");
+            }
+        }
 
-    //        DateTime time = Globals.StartTime;
-    //        // USED TO CHECK IF ALL MACHINES HAVE BEEN CHECKED
-    //        List<int> machineIndexes = new();
+        private void MakeSchedule(JobShop jobShop)
+        {
+            DateTime time = Globals.StartTime;
+            for (int i = 0; i < _makespan; i++)
+            {
+                List<String> row = new List<string> { time.ToString("dd/MM HH:mm") };
 
-    //        foreach (var machine in machines)
-    //        {
-    //            machineIndexes.Add(0);
-    //        }
+                foreach (string machine in _machines)
+                {
+                    ErrorOr<string> EORoperation = jobShop.CheckMachine(machine, time);
 
-    //        while (CheckJobs(machines.ToArray(), machineIndexes.ToArray()){
-    //            Console.WriteLine(time);
+                    // Improve error handling
+                    if (ErrorHandler.CheckError(EORoperation, 'C')) { Debug.Log("Error with getting operation"); return; }
 
-    //            for (int i = 0; i < machines.Count; i++)
-    //            {
-    //                var machineSchedule = ScheduleDict[machines[i]];
-    //                if (time > machineSchedule[machineIndexes[i]])
-    //                {
-                        
-    //                }
-    //            }
-    //        }
-    //    }
+                    row.Add(EORoperation.Value);
+                }
 
-    //    private bool CheckJobs(string[] machines, int[] indexs)
-    //    {
-    //        for (int i = 0; i < machines.Length; i++)
-    //        {
-    //            if (ScheduleDict[machines[i]].Count >= indexs[i] + 1)
-    //            {
-    //                return false;
-    //            }
-    //        }
-    //        return true;
-    //    }
+                _schedule.Add(row);
+
+                // Increments time
+                time = time.AddHours(1);
+            }
+        }
+
+        public string[,] GetSchedule()
+        {
+            // Have to convert schedule to matrix
+            int rowCount = _schedule.Count;
+            int colCount = _schedule.Max(list => list.Count);
+
+            string[,] schedule = new string[rowCount, colCount];
+
+            for (int i = 0; i < rowCount; i++)
+            {
+                for (int j = 0; j < _schedule[i].Count; j++)
+                {
+                    schedule[i, j] = _schedule[i][j];
+                }
+            }
+
+            return schedule;
+        }
+
+        public string[] GetHeaders()
+        {
+            string[] timeHeader = { "Time" };
+            return timeHeader.Concat(_machines).ToArray();
+        }
+
+        public string GetMakespan()
+        {
+            return _makespan.ToString();
+        }
     }
 }

@@ -13,5 +13,15 @@ namespace OOP_Project
         {
             SolverName = "Random Shuffle";
         }
+
+        public override ErrorOr<Schedule> Solve()
+        {
+            int[] baseGene = JobShopObj.BaseGene.ToArray();
+
+            Random rand = new Random();
+            int[] shuffledGene = baseGene.OrderBy(x => rand.Next()).ToArray();
+
+            return Schedule.Create(JobShopObj, shuffledGene);
+        }
     }
 }

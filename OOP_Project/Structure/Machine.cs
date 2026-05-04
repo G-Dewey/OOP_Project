@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Data;
 using System.Linq;
+using System.Reflection.Metadata.Ecma335;
 using System.Text;
 using System.Threading.Tasks;
 using ErrorOr;
@@ -10,7 +12,7 @@ namespace OOP_Project
     internal class Machine
     {
         public string Name { get; init; }
-        public Dictionary<string, DateTime[]> Schedule { get; set; } = new();
+        public Dictionary<DateTime, string> LocalSchedule { get; set; } = new();
         public DateTime NextAvailable { get; set; }
 
         private Machine(string name)
@@ -29,10 +31,16 @@ namespace OOP_Project
             return new Machine(name);
         }
 
-        // Returns false if error, true if successful
+        public void Reset()
+        {
+            LocalSchedule.Clear();
+            NextAvailable = Globals.StartTime;
+        }
+
+        // Returns returns the end time of the operation so that the job can update its available time for the next operation
         public ErrorOr<DateTime> ScheduleOperation(string operationName, int duration, DateTime jobAvailable)
         {
-            if (Schedule.ContainsKey(operationName))
+            if (LocalSchedule.ContainsValue(operationName))
             {
                 return Error.Validation(description: $"Operation {operationName} is already scheduled on machine {Name}.");
             }
@@ -40,14 +48,18 @@ namespace OOP_Project
             try
             {
                 DateTime operationTime = NextAvailable > jobAvailable ? NextAvailable : jobAvailable;
-                DateTime endTime = Utils.AddDuration(operationTime, duration);
 
-                Schedule.Add(operationName, new[] { operationTime, endTime });
+                for (int i = 0; i < duration; i++)
+                {
+                    LocalSchedule.Add(operationTime, operationName);
+                    operationTime = operationTime.AddHours(1);
+                }
 
-                this.NextAvailable = Utils.AddDuration(operationTime, duration);
+                // by the end of the loop, operationTime will be the end time of the operation, so we set NextAvailable to this time
+                this.NextAvailable = operationTime;
 
                 // Returns the end time so that the job can update its available time for the next operation
-                return endTime;
+                return operationTime;
             }
             catch (Exception ex)
             {

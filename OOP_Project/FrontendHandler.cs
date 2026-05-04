@@ -13,14 +13,19 @@ namespace OOP_Project
 {
     public class FrontendHandler : Window
     {
-        private JobShop _jobShop;
-        private string _directoryPath = "jobs";
+        // Job shop that will contain the data to be used by the solver 
         private string[] _dataHeaders;
         private string[,] _jobData;
+        private JobShop _jobShop;
+        // File handling variables
+        private string _directoryPath = "jobs";
         private string _fullPath;
         private string _fileName;
+        // Use to store alogorithm and solver
         private string _selectedAlgorithm;
         private Solver _solver;
+        // Use to revert on error
+        private string _lastSafeState = "file";
 
         public FrontendHandler()
         {
@@ -51,8 +56,8 @@ namespace OOP_Project
         // Returns the program to last safe state
         private void CriticalError(string message)
         {
-            // Add logic to revert to last safe stage 
             MessageBox.ErrorQuery("Critical Error", message, "OK");
+            RevertToSafe();
         }
 
         // Returns the program to the selection stage
@@ -84,7 +89,7 @@ namespace OOP_Project
                 {
                     case 'C':
                         CriticalError(errorMessage);
-                        //Debug.Log($"Critical error occurred: {errorMessage}");
+                        Debug.Log($"Critical error occurred: {errorMessage}\n!!!\nReverting to {_lastSafeState}\n!!!\n");
                         return true;
                     case 'W':
                         Warning(errorMessage);
@@ -141,11 +146,34 @@ namespace OOP_Project
             return true;
         }
 
+        private void RevertToSafe()
+        {
+            if (_lastSafeState == "file")
+            {
+                JobSelectionPage();
+            }
+            else if (_lastSafeState == "algorithm")
+            {
+                SelectAlgorithmPage();
+            }
+            else if (_lastSafeState == "preRunOverview")
+            {
+                PreRunOverviewPage();
+            }
+            else
+            {
+                JobSelectionPage();
+            }
+        }
+
         // PAGE METHODS
         // -------------------------------------------------
 
         public void JobSelectionPage()
         {
+            // New safe state
+            _lastSafeState = "file";
+
             this.RemoveAll();
 
             var filesFrame = new FrameView("Available Job Files")
@@ -194,9 +222,15 @@ namespace OOP_Project
                         _dataHeaders = Enumerable.Range(0, FileData.Value.GetLength(1))
                                       .Select(x => FileData.Value[0, x])
                                       .ToArray();
-                        // DO SAME HERE 
-                        _jobData = FileData.Value;
 
+                        // Copies the data from FileData to _jobData, excluding the header row. Uses Array.Copy for efficiency
+                        int rows = FileData.Value.GetLength(0);
+                        int cols = FileData.Value.GetLength(1);
+                        _jobData = new string[rows - 1, cols];
+                        int elementsToCopy = (rows - 1) * cols;
+                        Array.Copy(FileData.Value, cols, _jobData, 0, elementsToCopy);
+
+                        // Creates the jobshop
                         if (CreateJobShop())
                         {
                             SelectAlgorithmPage();
@@ -212,6 +246,9 @@ namespace OOP_Project
 
         private void SelectAlgorithmPage()
         {
+            // New safe state
+            _lastSafeState = "algorithm";
+
             this.RemoveAll();
 
             var algorithmsFrame = new FrameView("Available Algorithms")
@@ -258,6 +295,9 @@ namespace OOP_Project
 
         private void PreRunOverviewPage()
         {
+            // New safe state
+            _lastSafeState = "preRunOverview";
+
             this.RemoveAll();
 
             var titleLabel = new Label("Overview")
@@ -272,7 +312,7 @@ namespace OOP_Project
                 Y = Pos.Top(titleLabel) + 2,
             };
 
-            var algorithmLabel = new Label($"Selected Algorithm: {_selectedAlgorithm}, {_jobData[0,0]}")
+            var algorithmLabel = new Label($"Selected Algorithm: {_selectedAlgorithm}")
             {
                 X = Pos.Center(),
                 Y = Pos.Top(fileLabel) + 1,
@@ -287,17 +327,115 @@ namespace OOP_Project
                 Text = "Data Preview"
             };
 
+            ErrorOr<DataTable> errorOrDataTable = Utils.CreateDataTable(_dataHeaders, _jobData);
+
+            if (CheckError(errorOrDataTable, 'C'))
+            {
+                return;
+            }
+
+            DataTable dataTable = errorOrDataTable.Value;
+
             var previewDataTable = new TableView()
             {
                 X = Pos.Center(),
                 Y = Pos.Top(breakLine) + 1,
                 Width = Dim.Percent(80),
                 Height = Dim.Percent(50),
+                Table = dataTable,
+                CanFocus = false
             };
 
             previewDataTable.Style.AlwaysShowHeaders = true;
 
-            this.Add(titleLabel, fileLabel, algorithmLabel, breakLine, previewDataTable);
+            // Want to continue sections
+            var confirmationLabel = new Label("Do you want to continue?")
+            {
+                X = Pos.Center(),
+                Y = Pos.Bottom(previewDataTable) + 2,
+            };
+
+            var yesButton = new Button("Yes")
+            {
+                X = Pos.Center() - 10,
+                Y = Pos.Bottom(confirmationLabel) + 1,
+                IsDefault = true,
+                HotKey = Key.Enter
+            };
+
+            var noButton = new Button("No")
+            {
+                X = Pos.Center() + 5,
+                Y = Pos.Bottom(confirmationLabel) + 1,
+                HotKey = Key.Esc
+            };
+
+            // yes no logic
+            yesButton.Clicked += () =>
+            {
+                // Runs the solver
+                SolverPage();
+            };
+
+            noButton.Clicked += () =>
+            {
+                // Return to algorithm selection
+                SelectAlgorithmPage();
+            };
+
+            this.Add(titleLabel, fileLabel, algorithmLabel, breakLine, previewDataTable, confirmationLabel, yesButton, noButton);
+        }
+
+        private void LoadingPage()
+        {
+            this.RemoveAll();
+            
+            var loadingLabel = new Label("Loading...") 
+            { 
+                X = Pos.Center(),
+                Y = Pos.Center()
+            };
+            
+            this.Add(loadingLabel);
+        }
+
+        private void SolverPage()
+        {
+            LoadingPage();
+
+            ErrorOr<Schedule> EORschedule = _solver.Solve();
+
+            if (CheckError(EORschedule, 'C'))
+            {
+                return;
+            }
+
+            Schedule schedule = EORschedule.Value;
+
+            ErrorOr<DataTable> errorOrDataTable = Utils.CreateDataTable(schedule.GetHeaders(), schedule.GetSchedule());
+
+            if (CheckError(errorOrDataTable, 'C'))
+            {
+                return;
+            }
+
+            DataTable dataTable = errorOrDataTable.Value;
+
+            var scheduleDataTable = new TableView()
+            {
+                X = Pos.Center(),
+                Y = Pos.Center(),
+                Width = Dim.Percent(80),
+                Height = Dim.Percent(50),
+                Table = dataTable,
+                CanFocus = false
+            };
+
+            ExcelHandler.ExportScheduleToExcel(schedule, "schedules");  
+
+            this.RemoveAll();
+            this.Add(scheduleDataTable);
+
         }
     }
 }

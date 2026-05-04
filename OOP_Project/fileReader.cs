@@ -34,7 +34,7 @@ namespace OOP_Project
 
                 string[,] data = new string[lines.Length, headerIndexs.Value.Length];
 
-                for (int i = 0; i < headerIndexs.Value.Length - 1; i++)
+                for (int i = 0; i < headerIndexs.Value.Length; i++)
                 {
                     data[0, i] = headers[headerIndexs.Value[i]];
                 }
@@ -45,7 +45,7 @@ namespace OOP_Project
                     string[] values = lines[i].Split(',');
                     for (int j = 0; j < headerIndexs.Value.Length; j++)
                     {
-                        data[i - 1, headerIndexs.Value[j]] = values[j];
+                        data[i, headerIndexs.Value[j]] = values[j];
                     }
                 }
 

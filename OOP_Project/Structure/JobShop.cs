@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection.Metadata.Ecma335;
 using System.Text;
 using System.Threading.Tasks;
 using System.Xml.Linq;
@@ -13,13 +14,15 @@ namespace OOP_Project
         private Dictionary<int, Job> Jobs { get; set; }
         private Dictionary<string, Machine> Machines { get; set; }
         private DateTime StartTime { get; set; }
-        private List<int> BaseGene { get; set; } = new List<int>();
+
+        // Temp public
+        public List<int> BaseGene { get; set; } = new List<int>();
 
         private JobShop(string[,] data)
         {
             Jobs = new Dictionary<int, Job> { };
             Machines = new Dictionary<string, Machine> { };
-            
+
             StartTime = Globals.StartTime;
             ProcessData(data);
         }
@@ -31,16 +34,16 @@ namespace OOP_Project
             {
                 return new JobShop(data);
             }
-            catch(Exception ex)
-            { 
+            catch (Exception ex)
+            {
                 return Error.Failure(description: $"Failed initailise job shop");
             }
-            
+
         }
 
         private void ProcessData(string[,] data)
         {
-            for(int i = 0; i < data.GetLength(0); i++)
+            for (int i = 0; i < data.GetLength(0); i++)
             {
                 int jobID = int.Parse(data[i, 0]);
                 int operationID = int.Parse(data[i, 1]);
@@ -101,6 +104,88 @@ namespace OOP_Project
                 Console.Write($"{jobID} ");
             }
             Console.WriteLine();
+        }
+
+        public int FindMakeSpan()
+        {
+            DateTime end = Globals.StartTime;
+            foreach (Machine machine in Machines.Values)
+            {
+                if (machine.NextAvailable > end)
+                {
+                    end = machine.NextAvailable;
+                }
+            }
+
+            return Utils.CalcTimeSpan(end);
+        }
+
+        public int BuildGene(int[] gene)
+        {
+            // Clear the machines schedule and next available time
+            foreach (Machine m in Machines.Values)
+            {
+                m.Reset();
+            }
+
+            foreach (Job j in Jobs.Values)
+            {
+                j.Reset();
+            }
+
+            Job job;
+            DateTime jobAvailable;
+            ErrorOr<Operation> EORoperation;
+            Operation operation;
+            Machine machine;
+
+            foreach (int jobID in gene)
+            {
+                job = Jobs[jobID];
+                jobAvailable = job.GetAvailableTime();
+                EORoperation = job.NextOperation();
+
+                if (ErrorHandler.CheckError(EORoperation, 'C'))
+                {
+                    continue;
+                }
+
+                operation = EORoperation.Value;
+
+                machine = Machines[operation.Machine];
+                ErrorOr<DateTime> EORendTime = machine.ScheduleOperation(operation.GetName(), operation.ProcessTime, jobAvailable);
+
+                if (ErrorHandler.CheckError(EORendTime, 'C'))
+                {
+                    // Add fail logic
+                    return -1;
+                }
+
+                job.SetAvailableTime(EORendTime.Value);
+            }
+
+            return FindMakeSpan();
+        }
+
+        public string[] GetMachineNames()
+        {
+            return Machines.Keys.ToArray();
+        }
+
+        public ErrorOr<string> CheckMachine(string machineName, DateTime dateTime)
+        {
+            if (Machines.TryGetValue(machineName, out Machine machine))
+            {
+                if (machine.LocalSchedule.TryGetValue(dateTime, out string operation))
+                {
+                    return operation;
+                }
+                return "";
+            }
+            else
+            {
+                return Error.Failure("Could not find machine");
+            }
         }
     }
 }
