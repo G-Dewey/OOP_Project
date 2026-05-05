@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 
 namespace OOP_Project
 {
-    class Operation
+    class Operation : IDeepCloneable<Operation>
     {
         // TODO ENCAP
         public int OperationID { get; init; }
@@ -68,5 +68,8 @@ namespace OOP_Project
         {
             return $"Job {ParentJobID} - Operation {OperationID}";
         }
+
+        // All data is immutable, so can just return this
+        public Operation Clone() => this;
     }
 }

@@ -9,7 +9,7 @@ using System.Xml.Linq;
 
 namespace OOP_Project
 {
-    internal class JobShop
+    internal class JobShop : IDeepCloneable<JobShop>
     {
         private Dictionary<int, Job> Jobs { get; set; }
         private Dictionary<string, Machine> Machines { get; set; }
@@ -18,6 +18,11 @@ namespace OOP_Project
         // Temp public
         public List<int> BaseGene { get; set; } = new List<int>();
 
+        // Constructor Overloading - used by Clone method to create an empty instance without processing data
+        private JobShop() 
+        { }
+        
+        
         private JobShop(string[,] data)
         {
             Jobs = new Dictionary<int, Job> { };
@@ -38,7 +43,6 @@ namespace OOP_Project
             {
                 return Error.Failure(description: $"Failed initailise job shop");
             }
-
         }
 
         private void ProcessData(string[,] data)
@@ -120,18 +124,41 @@ namespace OOP_Project
             return Utils.CalcTimeSpan(end);
         }
 
+        // Evaluates fitness
+        public int EvaluateGene(int[] gene)
+        {
+            foreach (Machine m in Machines.Values) m.Reset();
+            foreach (Job j in Jobs.Values) j.Reset();
+
+            foreach (int jobID in gene)
+            {
+                Job job = Jobs[jobID];
+                DateTime jobAvailable = job.GetAvailableTime();
+                ErrorOr<Operation> EORoperation = job.NextOperation();
+
+                if (ErrorHandler.CheckError(EORoperation, 'C')) continue;
+
+                Operation operation = EORoperation.Value;
+                Machine machine = Machines[operation.Machine];
+
+                DateTime start = machine.NextAvailable > jobAvailable
+                    ? machine.NextAvailable
+                    : jobAvailable;
+
+                DateTime end = start.AddHours(operation.ProcessTime);
+                machine.NextAvailable = end;
+                job.SetAvailableTime(end);
+            }
+
+            return FindMakeSpan();
+        }
+
+        // Used for building a schedule
         public int BuildGene(int[] gene)
         {
             // Clear the machines schedule and next available time
-            foreach (Machine m in Machines.Values)
-            {
-                m.Reset();
-            }
-
-            foreach (Job j in Jobs.Values)
-            {
-                j.Reset();
-            }
+            foreach (Machine m in Machines.Values) m.Reset();
+            foreach (Job j in Jobs.Values) j.Reset();
 
             Job job;
             DateTime jobAvailable;
@@ -186,6 +213,18 @@ namespace OOP_Project
             {
                 return Error.Failure("Could not find machine");
             }
+        }
+
+        // Cloning method to create a deep copy of the JobShop instance, useful for solvers to avoid mutating the original data when parallel
+        public JobShop Clone()
+        {
+            return new JobShop
+            {
+                Jobs = Jobs.ToDictionary(e => e.Key, e => e.Value.Clone()),
+                Machines = Machines.ToDictionary(e => e.Key, e => e.Value.Clone()),
+                StartTime = StartTime,
+                BaseGene = new List<int>(BaseGene)
+            };
         }
     }
 }

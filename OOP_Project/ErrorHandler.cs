@@ -24,7 +24,7 @@ namespace OOP_Project
                 {
                     case 'C':
                         Critical(errorMessage);
-                        Debug.Log($"Crit: {errorMessage}");
+                        //Debug.Log($"Crit: {errorMessage}");
                         return true;
                     case 'W':
                         Warning(errorMessage);

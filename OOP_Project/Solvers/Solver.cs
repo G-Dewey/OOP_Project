@@ -14,7 +14,11 @@ namespace OOP_Project
         protected JobShop JobShopObj;
         protected int[] BestGene;
         protected int BestMakespan = -1;
-        protected Random rand = new Random();
+        
+        // RANDOM
+        private static readonly ThreadLocal<Random> _threadRand =
+        new ThreadLocal<Random>(() => new Random());
+        protected static Random rand => _threadRand.Value;
 
         public Solver(JobShop jobShop) 
         { 

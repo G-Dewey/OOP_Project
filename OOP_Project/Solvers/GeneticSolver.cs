@@ -10,9 +10,9 @@ namespace OOP_Project
     internal class GeneticSolver : Solver
     {
         // Hyperparameters
-        private int _populationSize = 100;
+        private int _populationSize = 50;
         private double _mutationRate = 0.05;
-        private int _maxGenerations = 1000;
+        private int _maxGenerations = 100;
         private int _tournamentSize = 5;
 
         public GeneticSolver(JobShop jobShop) : base(jobShop)
@@ -34,7 +34,7 @@ namespace OOP_Project
             return population;
         }
 
-        private int[] TournamentSelection(List<int[]> population, JobShop tempJobShop)
+        private int[] TournamentSelection(List<int[]> population, JobShop tempJobShop, Dictionary<int[],int> fitness)
         {
             List<int[]> tournament = new List<int[]>();
 
@@ -43,7 +43,7 @@ namespace OOP_Project
                 tournament.Add(population[rand.Next(population.Count)]);
             }
             
-            tournament.Sort((a, b) => tempJobShop.BuildGene(a).CompareTo(tempJobShop.BuildGene(b)));
+            tournament.Sort((a, b) => fitness[a].CompareTo(fitness[b]));
             return tournament[0];
         }
 
@@ -152,30 +152,52 @@ namespace OOP_Project
             List<int[]> population = InitialisePopulation();
             BestMakespan = JobShopObj.BuildGene(population[0]);
             BestGene = population[0];
+            int sinceLastImprovement = 0;
 
             // Solver loop
             for (int generation = 0; generation < _maxGenerations; generation++)
             {
-                Debug.Log($"Gen {generation}");
-                // Sorts the population based on fitness (makespan)
-                population.Sort((a,b) => JobShopObj.BuildGene(a).CompareTo(JobShopObj.BuildGene(b)));
+                // Sends the fitness to dict to improve effiancy 
+                var fitness = population.ToDictionary(
+                    gene => gene,
+                    gene => JobShopObj.BuildGene(gene)
+                 );
 
-                // Update best solution
-                if (JobShopObj.BuildGene(population[0]) < BestMakespan)
+
+                if (sinceLastImprovement >= 20) // Early stopping if no improvement for 20 generations
                 {
-                    BestMakespan = JobShopObj.BuildGene(population[0]);
-                    BestGene = population[0];
-                    Debug.Log("New best solution found in generation " + generation + " with makespan: " + BestMakespan);
+                    Console.WriteLine($"Early stopping at generation {generation} due to no improvement.");
+                    break;
                 }
 
-                List<int[]> newPopulation = new List<int[]>();
+                //Debug.Log($"Gen {generation}");
+                // Sorts the population based on fitness (makespan)
+                population.Sort((a, b) => fitness[a].CompareTo(fitness[b]));
 
-                Parallel.For(0, _populationSize / 2, i =>
+                // Update best solution
+                if (JobShopObj.EvaluateGene(population[0]) < BestMakespan)
                 {
-                    JobShop threadSafeJobShop = JobShopObj.Clone();
+                    BestMakespan = fitness[population[0]];
+                    BestGene = population[0];
+                    sinceLastImprovement = 0;
+                }
 
-                    int[] parent1 = TournamentSelection(population, threadSafeJobShop);
-                    int[] parent2 = TournamentSelection(population, threadSafeJobShop);
+                // Using elitism to keep the best 2 solutions
+                List<int[]> newPopulation = new List<int[]>
+                {
+                    population[0],
+                    population[1]
+                };
+
+
+                var threadLocalShop = new ThreadLocal<JobShop>(() => JobShopObj.Clone());
+
+                Parallel.For(0, (_populationSize -2)  / 2, i =>
+                {
+                    JobShop threadSafeJobShop = threadLocalShop.Value;
+
+                    int[] parent1 = TournamentSelection(population, threadSafeJobShop, fitness);
+                    int[] parent2 = TournamentSelection(population, threadSafeJobShop, fitness);
 
                     (int[] child1, int[] child2) = Crossover(parent1, parent2);
 
@@ -189,10 +211,13 @@ namespace OOP_Project
                     }
                 });
 
+                threadLocalShop.Dispose();
+
                 population = newPopulation;
+                sinceLastImprovement++;
             }
 
-            Debug.Log($"{BestGene}");
+            //Debug.Log($"{BestGene}");
 
             return Schedule.Create(JobShopObj, BestGene);
         }

@@ -9,7 +9,7 @@ using ErrorOr;
 
 namespace OOP_Project
 {
-    internal class Machine
+    internal class Machine : IDeepCloneable<Machine>
     {
         public string Name { get; init; }
         public Dictionary<DateTime, string> LocalSchedule { get; set; } = new();
@@ -20,7 +20,7 @@ namespace OOP_Project
             Name = name;
             NextAvailable = Globals.StartTime;
         }
-        
+
         public static ErrorOr<Machine> Create(string name)
         {
             if (string.IsNullOrWhiteSpace(name))
@@ -65,6 +65,16 @@ namespace OOP_Project
             {
                 return Error.Failure(description: $"Failed to schedule operation {operationName} on machine {Name}: {ex.Message}");
             }
+        }
+
+        public Machine Clone()
+        {
+            Machine clone = new Machine(this.Name)
+            {
+                LocalSchedule = new Dictionary<DateTime, string>(this.LocalSchedule),
+                NextAvailable = this.NextAvailable
+            };
+            return clone;
         }
     }
 }

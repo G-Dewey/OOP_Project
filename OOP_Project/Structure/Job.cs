@@ -7,7 +7,7 @@ using ErrorOr;
 
 namespace OOP_Project
 {
-    class Job
+    class Job : IDeepCloneable<Job>
     {
         public int JobID { get; init; }
         public List<Operation> Operations { get; set; }
@@ -73,6 +73,16 @@ namespace OOP_Project
         {
             // Add Validation 
             AvailableTime = newTime;
+        }
+
+        public Job Clone()
+        {
+            return new Job(this.JobID)
+            {
+                Operations = Operations.Select(op => op.Clone()).ToList(),
+                AvailableTime = this.AvailableTime,
+                OperationIndex = this.OperationIndex
+            };
         }
     }
 }

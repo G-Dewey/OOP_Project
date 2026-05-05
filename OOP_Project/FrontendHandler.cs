@@ -1,13 +1,14 @@
-﻿using System;
+﻿using ErrorOr;
+using System;
 using System.Collections.Generic;
+using System.Data;
+using System.Diagnostics;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading.Tasks;
 using Terminal.Gui;
-using ErrorOr;
 using Terminal.Gui.Graphs;
-using System.Data;
 
 namespace OOP_Project
 {
@@ -27,6 +28,11 @@ namespace OOP_Project
         // Use to revert on error
         private string _lastSafeState = "file";
 
+        // Colour Schemes
+        private ColorScheme _primaryScheme;
+        private ColorScheme _subtleScheme;
+        private ColorScheme _frameScheme;
+
         public FrontendHandler()
         {
             // Set up basic window properties
@@ -35,11 +41,36 @@ namespace OOP_Project
             Y = 0;
             Width = Dim.Fill();
             Height = Dim.Fill();
+            ColorScheme = _primaryScheme;
         }
 
         public void RunApp()
         {
             Application.Init();
+
+            // Set the colour schemes
+            _primaryScheme = new ColorScheme
+            {
+                Normal = Application.Driver.MakeAttribute(Color.BrightCyan, Color.Black),
+                Focus = Application.Driver.MakeAttribute(Color.Black, Color.BrightCyan),
+                HotNormal = Application.Driver.MakeAttribute(Color.BrightCyan, Color.Black),
+                HotFocus = Application.Driver.MakeAttribute(Color.Black, Color.BrightCyan),
+            };
+
+            _subtleScheme = new ColorScheme
+            {
+                Normal = Application.Driver.MakeAttribute(Color.Gray, Color.Black),
+                Focus = Application.Driver.MakeAttribute(Color.White, Color.Black),
+            };
+
+            _frameScheme = new ColorScheme
+            {
+                Normal = Application.Driver.MakeAttribute(Color.White, Color.Black),
+                Focus = Application.Driver.MakeAttribute(Color.BrightCyan, Color.Black),
+                HotNormal = Application.Driver.MakeAttribute(Color.BrightCyan, Color.Black),
+                HotFocus = Application.Driver.MakeAttribute(Color.Black, Color.BrightCyan),
+            };
+
 
             // Add this handler instance to the Top level
             Application.Top.Add(this);
@@ -89,7 +120,7 @@ namespace OOP_Project
                 {
                     case 'C':
                         CriticalError(errorMessage);
-                        Debug.Log($"Critical error occurred: {errorMessage}\n!!!\nReverting to {_lastSafeState}\n!!!\n");
+                        //Debug.Log($"Critical error occurred: {errorMessage}\n!!!\nReverting to {_lastSafeState}\n!!!\n");
                         return true;
                     case 'W':
                         Warning(errorMessage);
@@ -181,7 +212,8 @@ namespace OOP_Project
                 X = Pos.Center(),
                 Y = Pos.Center(),
                 Width = Dim.Percent(60),
-                Height = Dim.Percent(60)
+                Height = Dim.Percent(60),
+                ColorScheme = _frameScheme
             };
 
             // Position the title using Pos.Top(filesFrame) and an integer offset (Pos - int is supported)
@@ -189,6 +221,7 @@ namespace OOP_Project
             {
                 X = Pos.Center(),
                 Y = Pos.Top(filesFrame) - 3,
+                ColorScheme = _primaryScheme
             };
 
             ErrorOr<string[]> fileResult = Utils.GetFilesInDir(_directoryPath, "csv");
@@ -205,7 +238,8 @@ namespace OOP_Project
                     X = 0,
                     Y = 0,
                     Width = Dim.Fill(),
-                    Height = Dim.Fill()
+                    Height = Dim.Fill(),
+                    ColorScheme = _frameScheme
                 };
 
                 listView.OpenSelectedItem += (args) =>
@@ -256,13 +290,15 @@ namespace OOP_Project
                 X = Pos.Center(),
                 Y = Pos.Center(),
                 Width = Dim.Percent(60),
-                Height = Dim.Percent(60)
+                Height = Dim.Percent(60),
+                ColorScheme = _frameScheme
             };
 
             var titleLabel = new Label($"Select an algorithm to solve {_fileName}")
             {
                 X = Pos.Center(),
                 Y = Pos.Top(algorithmsFrame) - 3,
+                ColorScheme = _primaryScheme
             };
 
             string[] algorthims = Globals.AvailableAlgorithms;
@@ -271,7 +307,8 @@ namespace OOP_Project
                 X = 0,
                 Y = 0,
                 Width = Dim.Fill(),
-                Height = Dim.Fill()
+                Height = Dim.Fill(),
+                ColorScheme = _frameScheme
             };
 
             listView.OpenSelectedItem += (args) =>
@@ -304,18 +341,21 @@ namespace OOP_Project
             {
                 X = Pos.Center(),
                 Y = Pos.Top(this) + 1,
+                ColorScheme = _primaryScheme
             };
 
             var fileLabel = new Label($"File: {_fileName}")
             {
                 X = Pos.Center(),
                 Y = Pos.Top(titleLabel) + 2,
+                ColorScheme = _primaryScheme
             };
 
             var algorithmLabel = new Label($"Selected Algorithm: {_selectedAlgorithm}")
             {
                 X = Pos.Center(),
                 Y = Pos.Top(fileLabel) + 1,
+                ColorScheme = _primaryScheme
             };
 
             
@@ -324,7 +364,8 @@ namespace OOP_Project
                 Y = Pos.Top(algorithmLabel) + 2,
                 Width = Dim.Fill(),
                 Orientation = Orientation.Horizontal,
-                Text = "Data Preview"
+                Text = "Data Preview",
+                ColorScheme = _primaryScheme
             };
 
             ErrorOr<DataTable> errorOrDataTable = Utils.CreateDataTable(_dataHeaders, _jobData);
@@ -343,7 +384,8 @@ namespace OOP_Project
                 Width = Dim.Percent(80),
                 Height = Dim.Percent(50),
                 Table = dataTable,
-                CanFocus = false
+                CanFocus = false,
+                ColorScheme = _frameScheme
             };
 
             previewDataTable.Style.AlwaysShowHeaders = true;
@@ -389,53 +431,113 @@ namespace OOP_Project
         private void LoadingPage()
         {
             this.RemoveAll();
-            
-            var loadingLabel = new Label("Loading...") 
-            { 
+            var loadingLabel = new Label("Solving, please wait...")
+            {
                 X = Pos.Center(),
                 Y = Pos.Center()
             };
-            
             this.Add(loadingLabel);
+            Application.Refresh(); // Force UI to redraw before solver blocks the thread
         }
 
         private void SolverPage()
         {
             LoadingPage();
 
+            var sw = Stopwatch.StartNew();
             ErrorOr<Schedule> EORschedule = _solver.Solve();
+            var time = sw.Elapsed;
+            sw.Stop();
 
-            if (CheckError(EORschedule, 'C'))
-            {
-                return;
-            }
+            if (CheckError(EORschedule, 'C')) return;
 
             Schedule schedule = EORschedule.Value;
 
-            ErrorOr<DataTable> errorOrDataTable = Utils.CreateDataTable(schedule.GetHeaders(), schedule.GetSchedule());
-
-            if (CheckError(errorOrDataTable, 'C'))
-            {
-                return;
-            }
-
-            DataTable dataTable = errorOrDataTable.Value;
-
-            var scheduleDataTable = new TableView()
+            // -- Stats panel --
+            var titleLabel = new Label($" Algorithm: {_selectedAlgorithm.ToUpper()} ")
             {
                 X = Pos.Center(),
-                Y = Pos.Center(),
-                Width = Dim.Percent(80),
-                Height = Dim.Percent(50),
-                Table = dataTable,
-                CanFocus = false
+                Y = 1,
+                ColorScheme = new ColorScheme
+                {
+                    Normal = Application.Driver.MakeAttribute(Color.BrightCyan, Color.Black)
+                }
             };
 
-            ExcelHandler.ExportScheduleToExcel(schedule, "schedules");  
+            var fileLabel = new Label($" File: {_fileName} ")
+            {
+                X = Pos.Center(),
+                Y = Pos.Bottom(titleLabel) + 1,
+                ColorScheme = new ColorScheme
+                {
+                    Normal = Application.Driver.MakeAttribute(Color.Gray, Color.Black)
+                }
+            };
+
+            var statsFrame = new FrameView("Results")
+            {
+                X = Pos.Center(),
+                Y = Pos.Bottom(fileLabel) + 1,
+                Width = 36,
+                Height = 5,
+                ColorScheme = new ColorScheme
+                {
+                    Normal = Application.Driver.MakeAttribute(Color.White, Color.Black),
+                    Focus = Application.Driver.MakeAttribute(Color.White, Color.Black),
+                }
+            };
+
+            statsFrame.Add(new Label($" Makespan : {schedule.GetMakespan()}") { X = 0, Y = 0 });
+            statsFrame.Add(new Label($" Solved in: {time.TotalMilliseconds:F1}ms") { X = 0, Y = 1 });
+
+            var breakLine = new LineView()
+            {
+                Y = Pos.Bottom(statsFrame) + 1,
+                Width = Dim.Fill(),
+                Orientation = Orientation.Horizontal,
+            };
+
+            // -- Schedule table --
+            ErrorOr<DataTable> errorOrDataTable = Utils.CreateDataTable(
+                schedule.GetHeaders(), schedule.GetSchedule(), hori: true);
+
+            if (CheckError(errorOrDataTable, 'C')) return;
+
+            var tableFrame = new FrameView("Schedule")
+            {
+                X = 1,
+                Y = Pos.Bottom(breakLine) + 1,
+                Width = Dim.Fill(1),
+                Height = Dim.Fill(1),
+                ColorScheme = new ColorScheme
+                {
+                    Normal = Application.Driver.MakeAttribute(Color.White, Color.Black),
+                    Focus = Application.Driver.MakeAttribute(Color.BrightCyan, Color.Black),
+                }
+            };
+
+            var scheduleTable = new TableView()
+            {
+                X = 0,
+                Y = 0,
+                Width = Dim.Fill(),
+                Height = Dim.Fill(),
+                Table = errorOrDataTable.Value,
+                CanFocus = true,
+                Style = new TableView.TableStyle
+                {
+                    AlwaysShowHeaders = true,
+                    ExpandLastColumn = true,
+                    InvertSelectedCellFirstCharacter = true,
+                },
+                // move your ColorScheme here unchanged
+            };
+
+            tableFrame.Add(scheduleTable);
+
 
             this.RemoveAll();
-            this.Add(scheduleDataTable);
-
+            this.Add(titleLabel, fileLabel, statsFrame, breakLine, tableFrame);
         }
     }
 }
