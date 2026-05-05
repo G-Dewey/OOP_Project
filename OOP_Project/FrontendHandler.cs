@@ -337,6 +337,7 @@ namespace OOP_Project
 
             this.RemoveAll();
 
+            // Pre-Run Stats
             var titleLabel = new Label("Overview")
             {
                 X = Pos.Center(),
@@ -348,25 +349,27 @@ namespace OOP_Project
             {
                 X = Pos.Center(),
                 Y = Pos.Top(titleLabel) + 2,
-                ColorScheme = _primaryScheme
+                ColorScheme = _subtleScheme
             };
 
             var algorithmLabel = new Label($"Selected Algorithm: {_selectedAlgorithm}")
             {
                 X = Pos.Center(),
                 Y = Pos.Top(fileLabel) + 1,
-                ColorScheme = _primaryScheme
+                ColorScheme = _subtleScheme
             };
 
             
             var breakLine = new LineView()
             {
-                Y = Pos.Top(algorithmLabel) + 2,
+                Y = Pos.Top(algorithmLabel) + 1,
                 Width = Dim.Fill(),
                 Orientation = Orientation.Horizontal,
                 Text = "Data Preview",
                 ColorScheme = _primaryScheme
             };
+
+            // Preview Frame and Table
 
             ErrorOr<DataTable> errorOrDataTable = Utils.CreateDataTable(_dataHeaders, _jobData);
 
@@ -377,24 +380,45 @@ namespace OOP_Project
 
             DataTable dataTable = errorOrDataTable.Value;
 
-            var previewDataTable = new TableView()
+            var tableFrame = new FrameView("Schedule")
             {
                 X = Pos.Center(),
-                Y = Pos.Top(breakLine) + 1,
+                Y = Pos.Bottom(breakLine) + 1,
                 Width = Dim.Percent(80),
                 Height = Dim.Percent(50),
+                ColorScheme = _frameScheme
+            };
+
+            var previewDataTable = new TableView()
+            {
+                X = 0,
+                Y = 0,
+                Width = Dim.Fill(),
+                Height = Dim.Fill(),
                 Table = dataTable,
-                CanFocus = false,
+                CanFocus = true,
                 ColorScheme = _frameScheme
             };
 
             previewDataTable.Style.AlwaysShowHeaders = true;
 
-            // Want to continue sections
+            tableFrame.Add(previewDataTable);
+
+            // Continue Menu
+            var breakLine2 = new LineView()
+            {
+                Y = Pos.Bottom(tableFrame) + 1,
+                Width = Dim.Fill(),
+                Orientation = Orientation.Horizontal,
+                Text = "Data Preview",
+                ColorScheme = _primaryScheme
+            };
+
             var confirmationLabel = new Label("Do you want to continue?")
             {
                 X = Pos.Center(),
-                Y = Pos.Bottom(previewDataTable) + 2,
+                Y = Pos.Bottom(breakLine2) + 1,
+                ColorScheme = _primaryScheme
             };
 
             var yesButton = new Button("Yes")
@@ -402,14 +426,16 @@ namespace OOP_Project
                 X = Pos.Center() - 10,
                 Y = Pos.Bottom(confirmationLabel) + 1,
                 IsDefault = true,
-                HotKey = Key.Enter
+                HotKey = Key.Enter,
+                ColorScheme = _primaryScheme
             };
 
             var noButton = new Button("No")
             {
                 X = Pos.Center() + 5,
                 Y = Pos.Bottom(confirmationLabel) + 1,
-                HotKey = Key.Esc
+                HotKey = Key.Esc,
+                ColorScheme = _primaryScheme
             };
 
             // yes no logic
@@ -425,7 +451,7 @@ namespace OOP_Project
                 SelectAlgorithmPage();
             };
 
-            this.Add(titleLabel, fileLabel, algorithmLabel, breakLine, previewDataTable, confirmationLabel, yesButton, noButton);
+            this.Add(titleLabel, fileLabel, algorithmLabel, breakLine, tableFrame, breakLine2 ,confirmationLabel, yesButton, noButton);
         }
 
         private void LoadingPage()
@@ -454,7 +480,7 @@ namespace OOP_Project
             Schedule schedule = EORschedule.Value;
 
             // -- Stats panel --
-            var titleLabel = new Label($" Algorithm: {_selectedAlgorithm.ToUpper()} ")
+            var titleLabel = new Label($" File: {_fileName} | Algorithm: {_selectedAlgorithm} ")
             {
                 X = Pos.Center(),
                 Y = 1,
@@ -464,20 +490,10 @@ namespace OOP_Project
                 }
             };
 
-            var fileLabel = new Label($" File: {_fileName} ")
-            {
-                X = Pos.Center(),
-                Y = Pos.Bottom(titleLabel) + 1,
-                ColorScheme = new ColorScheme
-                {
-                    Normal = Application.Driver.MakeAttribute(Color.Gray, Color.Black)
-                }
-            };
-
             var statsFrame = new FrameView("Results")
             {
                 X = Pos.Center(),
-                Y = Pos.Bottom(fileLabel) + 1,
+                Y = Pos.Bottom(titleLabel) + 1,
                 Width = 36,
                 Height = 5,
                 ColorScheme = new ColorScheme
@@ -490,9 +506,50 @@ namespace OOP_Project
             statsFrame.Add(new Label($" Makespan : {schedule.GetMakespan()}") { X = 0, Y = 0 });
             statsFrame.Add(new Label($" Solved in: {time.TotalMilliseconds:F1}ms") { X = 0, Y = 1 });
 
+
+            // Excel Selection
+            var excelRowY = Pos.Bottom(statsFrame) + 1;
+
+            var excelLabel = new Label("Do you export to excel? ")
+            {
+                X = Pos.Center() - 21, 
+                Y = excelRowY,
+                ColorScheme = _primaryScheme
+            };
+
+            var yesButton = new Button("Yes")
+            {
+                X = Pos.Right(excelLabel) + 1,
+                Y = excelRowY,
+                IsDefault = true,
+                HotKey = Key.Enter,
+                ColorScheme = _primaryScheme
+            };
+
+            var noButton = new Button("No")
+            {
+                X = Pos.Right(yesButton) + 1, 
+                Y = excelRowY,
+                HotKey = Key.Esc,
+                ColorScheme = _primaryScheme
+            };
+
+            // yes no logic
+            yesButton.Clicked += () =>
+            {
+                // Runs the solver
+                ExcelHandler.ExportScheduleToExcel(schedule, "schedules");
+            };
+
+            noButton.Clicked += () =>
+            {
+                // Return to algorithm selection
+                SelectAlgorithmPage();
+            };
+
             var breakLine = new LineView()
             {
-                Y = Pos.Bottom(statsFrame) + 1,
+                Y = Pos.Bottom(yesButton) + 1,
                 Width = Dim.Fill(),
                 Orientation = Orientation.Horizontal,
             };
@@ -509,11 +566,7 @@ namespace OOP_Project
                 Y = Pos.Bottom(breakLine) + 1,
                 Width = Dim.Fill(1),
                 Height = Dim.Fill(1),
-                ColorScheme = new ColorScheme
-                {
-                    Normal = Application.Driver.MakeAttribute(Color.White, Color.Black),
-                    Focus = Application.Driver.MakeAttribute(Color.BrightCyan, Color.Black),
-                }
+                ColorScheme = _frameScheme
             };
 
             var scheduleTable = new TableView()
@@ -528,7 +581,6 @@ namespace OOP_Project
                 {
                     AlwaysShowHeaders = true,
                     ExpandLastColumn = true,
-                    InvertSelectedCellFirstCharacter = true,
                 },
                 // move your ColorScheme here unchanged
             };
@@ -537,7 +589,7 @@ namespace OOP_Project
 
 
             this.RemoveAll();
-            this.Add(titleLabel, fileLabel, statsFrame, breakLine, tableFrame);
+            this.Add(titleLabel, statsFrame, excelLabel,yesButton,noButton,breakLine, tableFrame);
         }
     }
 }

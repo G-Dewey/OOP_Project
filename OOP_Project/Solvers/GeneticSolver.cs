@@ -10,7 +10,7 @@ namespace OOP_Project
     internal class GeneticSolver : Solver
     {
         // Hyperparameters
-        private int _populationSize = 50;
+        private int _populationSize = 30;
         private double _mutationRate = 0.05;
         private int _maxGenerations = 100;
         private int _tournamentSize = 5;
