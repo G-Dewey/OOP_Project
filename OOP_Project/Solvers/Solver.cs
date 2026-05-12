@@ -4,24 +4,25 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using DocumentFormat.OpenXml.Presentation;
-using ErrorOr;  
+using ErrorOr;
 
 namespace OOP_Project
 {
-    abstract class Solver
+    // Base class for all optimization algorithms
+    public abstract class Solver
     {
         protected string SolverName;
         protected JobShop JobShopObj;
         protected int[] BestGene;
         protected int BestMakespan = -1;
-        
-        // RANDOM
+
+        // RANDOM - Thread-safe random instance for parallel execution
         private static readonly ThreadLocal<Random> _threadRand =
-        new ThreadLocal<Random>(() => new Random());
+        new ThreadLocal<Random>(() => new Random(Guid.NewGuid().GetHashCode()));
         protected static Random rand => _threadRand.Value;
 
-        public Solver(JobShop jobShop) 
-        { 
+        public Solver(JobShop jobShop)
+        {
             JobShopObj = jobShop;
         }
 
@@ -30,7 +31,7 @@ namespace OOP_Project
             return SolverName;
         }
 
-        // This is the method that will be 
+        // This is the method that will be overwritten by specific algorithm implementations
         public virtual ErrorOr<Schedule> Solve()
         {
             return Error.Failure(description: "Function not overwritten");

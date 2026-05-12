@@ -10,20 +10,22 @@ namespace OOP_Project
     internal class GeneticSolver : Solver
     {
         // Hyperparameters
-        private int _populationSize = 30;
+        private int _populationSize = 60;
         private double _mutationRate = 0.05;
-        private int _maxGenerations = 100;
-        private int _tournamentSize = 5;
+        private int _maxGenerations = 300;
+        private int _tournamentSize = 4;
+        private int _elitismCount = 2;
+        private int _maxNoImprovement = 50;
 
         public GeneticSolver(JobShop jobShop) : base(jobShop)
         {
             SolverName = "Genetic";
         }
 
+        // Generates the starting pool of candidate solutions
         private List<int[]> InitialisePopulation()
         {
             List<int[]> population = new List<int[]>();
-
             int[] baseGene = JobShopObj.BaseGene.ToArray();
 
             for (int i = 0; i < _populationSize; i++)
@@ -34,7 +36,8 @@ namespace OOP_Project
             return population;
         }
 
-        private int[] TournamentSelection(List<int[]> population, JobShop tempJobShop, Dictionary<int[],int> fitness)
+        // Picks the best individual from a random subset
+        private int[] TournamentSelection(List<int[]> population, JobShop tempJobShop, Dictionary<int[], int> fitness)
         {
             List<int[]> tournament = new List<int[]>();
 
@@ -42,7 +45,7 @@ namespace OOP_Project
             {
                 tournament.Add(population[rand.Next(population.Count)]);
             }
-            
+
             tournament.Sort((a, b) => fitness[a].CompareTo(fitness[b]));
             return tournament[0];
         }
@@ -104,7 +107,6 @@ namespace OOP_Project
             int p1Index = 0;
             int p2Index = 0;
 
-
             for (int i = 0; i < length; ++i)
             {
                 if (child1[i] == -1)
@@ -133,9 +135,10 @@ namespace OOP_Project
             return (child1, child2);
         }
 
+        // Randomly swaps genes based on mutation rate
         private void Mutate(ref int[] gene)
         {
-            for(int i = 0; i < gene.Length; i++)
+            for (int i = 0; i < gene.Length; i++)
             {
                 if (rand.NextDouble() < _mutationRate)
                 {
@@ -163,18 +166,15 @@ namespace OOP_Project
                     gene => JobShopObj.BuildGene(gene)
                  );
 
-
-                if (sinceLastImprovement >= 20) // Early stopping if no improvement for 20 generations
+                if (sinceLastImprovement >= _maxNoImprovement) // Early stopping if no improvement
                 {
-                    Console.WriteLine($"Early stopping at generation {generation} due to no improvement.");
                     break;
                 }
 
-                //Debug.Log($"Gen {generation}");
                 // Sorts the population based on fitness (makespan)
                 population.Sort((a, b) => fitness[a].CompareTo(fitness[b]));
 
-                // Update best solution
+                // Update global best solution
                 if (JobShopObj.EvaluateGene(population[0]) < BestMakespan)
                 {
                     BestMakespan = fitness[population[0]];
@@ -182,17 +182,18 @@ namespace OOP_Project
                     sinceLastImprovement = 0;
                 }
 
-                // Using elitism to keep the best 2 solutions
-                List<int[]> newPopulation = new List<int[]>
+                // Using elitism to keep the best solutions
+                List<int[]> newPopulation = new List<int[]>();
+
+                for (int i = 0; i < _elitismCount; i++)
                 {
-                    population[0],
-                    population[1]
-                };
+                    newPopulation.Add(population[i]);
+                }
 
-
+                // Parallel processing for offspring generation
                 var threadLocalShop = new ThreadLocal<JobShop>(() => JobShopObj.Clone());
 
-                Parallel.For(0, (_populationSize -2)  / 2, i =>
+                Parallel.For(0, (_populationSize - _elitismCount) / 2, i =>
                 {
                     JobShop threadSafeJobShop = threadLocalShop.Value;
 
@@ -216,8 +217,6 @@ namespace OOP_Project
                 population = newPopulation;
                 sinceLastImprovement++;
             }
-
-            //Debug.Log($"{BestGene}");
 
             return Schedule.Create(JobShopObj, BestGene);
         }

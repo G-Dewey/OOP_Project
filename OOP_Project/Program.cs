@@ -11,8 +11,6 @@ namespace OOP_Project
     {
         private static void Main(string[] args)
         {
-            //Debug.Log("Application started.");
-
             var gui = new FrontendHandler();
 
             gui.RunApp();

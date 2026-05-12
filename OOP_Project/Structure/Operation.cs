@@ -7,28 +7,23 @@ using System.Threading.Tasks;
 
 namespace OOP_Project
 {
-    class Operation : IDeepCloneable<Operation>
+    public class Operation : IDeepCloneable<Operation>
     {
-        // TODO ENCAP
-        public int OperationID { get; init; }
-        public int ParentJobID { get; init; }
-        public int LocalID { get; init; }
-        public string Machine { get; init; }
-        public int ProcessTime { get; init; }
-        public bool Executed { get; private set; }
+        private int _operationID { get; init; }
+        private int _parentJobID { get; init; }
+        private string _machine { get; init; }
+        private int _processTime { get; init; }
 
-        private Operation(int givenID, string givenMachine, int givenProcessTime, int parentID, int localID)
+        private Operation(int givenID, string givenMachine, int givenProcessTime, int parentID)
         {
-            OperationID = givenID;
-            ParentJobID = parentID;
-            LocalID = localID;
-            Machine = givenMachine;
-            ProcessTime = givenProcessTime;
-            Executed = false;
+            _operationID = givenID;
+            _parentJobID = parentID;
+            _machine = givenMachine;
+            _processTime = givenProcessTime;
         }
 
-        // Improve validation (dup IDs, null ids)
-        public static ErrorOr<Operation> Create(int givenID, string givenMachine, int givenProcessTime, int parentID, int localID)
+        // Factory method with validation for creating valid operation instances
+        public static ErrorOr<Operation> Create(int givenID, string givenMachine, int givenProcessTime, int parentID)
         {
             if (givenID < 0)
             {
@@ -38,7 +33,7 @@ namespace OOP_Project
             {
                 return Error.Validation(description: "Process time must be greater than zero.");
             }
-            if (givenMachine == null || givenMachine == "")
+            if (string.IsNullOrEmpty(givenMachine))
             {
                 return Error.Validation(description: "Machine cannot be null or empty.");
             }
@@ -46,30 +41,32 @@ namespace OOP_Project
             {
                 return Error.Validation(description: "Parent Job ID cannot be negative.");
             }
-            if (localID < 0)
-            {
-                return Error.Validation(description: "Local ID cannot be negative.");
-            }
 
-            return new Operation(givenID, givenMachine, givenProcessTime, parentID, localID);
-        }
-
-        public void MarkCompleted()
-        {
-            Executed = true;
+            return new Operation(givenID, givenMachine, givenProcessTime, parentID);
         }
 
         public string GetTitle()
         {
-            return $"Job: {ParentJobID} | Operation: {OperationID})";
+            return $"Job: {_parentJobID} | Operation: {_operationID})";
         }
 
-        public string GetName() 
+        // Returns a formatted name for schedule identification
+        public string GetName()
         {
-            return $"Job {ParentJobID} - Operation {OperationID}";
+            return $"Job {_parentJobID} - Operation {_operationID}";
         }
 
-        // All data is immutable, so can just return this
+        public string GetMachine()
+        {
+            return _machine;
+        }
+
+        public int GetProcessTime()
+        {
+            return _processTime;
+        }
+
+        // Shallow clone since properties are immutable or primitive
         public Operation Clone() => this;
     }
 }

@@ -9,26 +9,22 @@ using System.Xml.Linq;
 
 namespace OOP_Project
 {
-    internal class JobShop : IDeepCloneable<JobShop>
+    public class JobShop : IDeepCloneable<JobShop>
     {
-        private Dictionary<int, Job> Jobs { get; set; }
-        private Dictionary<string, Machine> Machines { get; set; }
-        private DateTime StartTime { get; set; }
-
-        // Temp public
+        private Dictionary<int, Job> _jobs { get; set; }
+        private Dictionary<string, Machine> _machines { get; set; }
+        private DateTime _startTime { get; set; }
         public List<int> BaseGene { get; set; } = new List<int>();
 
         // Constructor Overloading - used by Clone method to create an empty instance without processing data
-        private JobShop() 
-        { }
-        
-        
+        private JobShop() { }
+
         private JobShop(string[,] data)
         {
-            Jobs = new Dictionary<int, Job> { };
-            Machines = new Dictionary<string, Machine> { };
+            _jobs = new Dictionary<int, Job> { };
+            _machines = new Dictionary<string, Machine> { };
 
-            StartTime = Globals.StartTime;
+            _startTime = Globals.StartTime;
             ProcessData(data);
         }
 
@@ -45,6 +41,7 @@ namespace OOP_Project
             }
         }
 
+        // Parses raw string data into Job, Machine, and Operation objects
         private void ProcessData(string[,] data)
         {
             for (int i = 0; i < data.GetLength(0); i++)
@@ -55,24 +52,24 @@ namespace OOP_Project
                 int processingTime = int.Parse(data[i, 3]);
 
                 // Checks if job already exists, if not creates it and adds to dict
-                if (!Jobs.ContainsKey(jobID))
+                if (!_jobs.ContainsKey(jobID))
                 {
                     var job = Job.Create(jobID);
                     if (ErrorHandler.CheckError(job, 'W')) { continue; }
 
-                    Jobs.Add(jobID, job.Value);
+                    _jobs.Add(jobID, job.Value);
                 }
 
                 // Checks if machine already exists, if not creates it and adds to dict
-                if (!Machines.ContainsKey(subdivision))
+                if (!_machines.ContainsKey(subdivision))
                 {
                     var machine = Machine.Create(subdivision);
                     if (ErrorHandler.CheckError(machine, 'C')) { continue; }
-                    Machines.Add(subdivision, machine.Value);
+                    _machines.Add(subdivision, machine.Value);
                 }
 
                 // Adds operation to job, if fails logs error and continues
-                if (!Jobs[jobID].addOperation(operationID, subdivision, processingTime))
+                if (!_jobs[jobID].addOperation(operationID, subdivision, processingTime))
                 {
                     // Send Warning
                     continue;
@@ -82,38 +79,11 @@ namespace OOP_Project
             }
         }
 
-        private int[] ShuffleGene()
-        {
-            Random rand = new Random();
-            return BaseGene.OrderBy(x => rand.Next()).ToArray();
-        }
-
-        // TESTER FUNCTION TO PRINT THE BASE GENE, CAN BE REMOVED LATER
-        public void PrintShuffledGene()
-        {
-            var shuffledGene = ShuffleGene();
-            Console.WriteLine("Shuffled Gene:");
-            foreach (var jobID in shuffledGene)
-            {
-                Console.Write($"{jobID} ");
-            }
-            Console.WriteLine();
-        }
-
-        public void PrintGene()
-        {
-            Console.WriteLine("Base Gene:");
-            foreach (var jobID in BaseGene)
-            {
-                Console.Write($"{jobID} ");
-            }
-            Console.WriteLine();
-        }
-
+        // Calculates the total duration (makespan) by finding the latest machine end time
         public int FindMakeSpan()
         {
             DateTime end = Globals.StartTime;
-            foreach (Machine machine in Machines.Values)
+            foreach (Machine machine in _machines.Values)
             {
                 if (machine.NextAvailable > end)
                 {
@@ -124,28 +94,29 @@ namespace OOP_Project
             return Utils.CalcTimeSpan(end);
         }
 
-        // Evaluates fitness
+        // Evaluates fitness - lightweight simulation to calculate makespan without full scheduling
         public int EvaluateGene(int[] gene)
         {
-            foreach (Machine m in Machines.Values) m.Reset();
-            foreach (Job j in Jobs.Values) j.Reset();
+            foreach (Machine m in _machines.Values) m.Reset();
+            foreach (Job j in _jobs.Values) j.Reset();
 
             foreach (int jobID in gene)
             {
-                Job job = Jobs[jobID];
+                Job job = _jobs[jobID];
                 DateTime jobAvailable = job.GetAvailableTime();
                 ErrorOr<Operation> EORoperation = job.NextOperation();
 
                 if (ErrorHandler.CheckError(EORoperation, 'C')) continue;
 
                 Operation operation = EORoperation.Value;
-                Machine machine = Machines[operation.Machine];
+                Machine machine = _machines[operation.GetMachine()];
 
+                // Determine start time based on both machine and job availability
                 DateTime start = machine.NextAvailable > jobAvailable
                     ? machine.NextAvailable
                     : jobAvailable;
 
-                DateTime end = start.AddHours(operation.ProcessTime);
+                DateTime end = start.AddHours(operation.GetProcessTime());
                 machine.NextAvailable = end;
                 job.SetAvailableTime(end);
             }
@@ -153,12 +124,12 @@ namespace OOP_Project
             return FindMakeSpan();
         }
 
-        // Used for building a schedule
+        // Used for building a schedule - performs a full simulation and records time slots
         public int BuildGene(int[] gene)
         {
             // Clear the machines schedule and next available time
-            foreach (Machine m in Machines.Values) m.Reset();
-            foreach (Job j in Jobs.Values) j.Reset();
+            foreach (Machine m in _machines.Values) m.Reset();
+            foreach (Job j in _jobs.Values) j.Reset();
 
             Job job;
             DateTime jobAvailable;
@@ -168,7 +139,7 @@ namespace OOP_Project
 
             foreach (int jobID in gene)
             {
-                job = Jobs[jobID];
+                job = _jobs[jobID];
                 jobAvailable = job.GetAvailableTime();
                 EORoperation = job.NextOperation();
 
@@ -179,8 +150,8 @@ namespace OOP_Project
 
                 operation = EORoperation.Value;
 
-                machine = Machines[operation.Machine];
-                ErrorOr<DateTime> EORendTime = machine.ScheduleOperation(operation.GetName(), operation.ProcessTime, jobAvailable);
+                machine = _machines[operation.GetMachine()];
+                ErrorOr<DateTime> EORendTime = machine.ScheduleOperation(operation.GetName(), operation.GetProcessTime(), jobAvailable);
 
                 if (ErrorHandler.CheckError(EORendTime, 'C'))
                 {
@@ -196,12 +167,13 @@ namespace OOP_Project
 
         public string[] GetMachineNames()
         {
-            return Machines.Keys.ToArray();
+            return _machines.Keys.ToArray();
         }
 
+        // Checks what operation is running on a specific machine at a specific time
         public ErrorOr<string> CheckMachine(string machineName, DateTime dateTime)
         {
-            if (Machines.TryGetValue(machineName, out Machine machine))
+            if (_machines.TryGetValue(machineName, out Machine machine))
             {
                 if (machine.LocalSchedule.TryGetValue(dateTime, out string operation))
                 {
@@ -220,9 +192,9 @@ namespace OOP_Project
         {
             return new JobShop
             {
-                Jobs = Jobs.ToDictionary(e => e.Key, e => e.Value.Clone()),
-                Machines = Machines.ToDictionary(e => e.Key, e => e.Value.Clone()),
-                StartTime = StartTime,
+                _jobs = _jobs.ToDictionary(e => e.Key, e => e.Value.Clone()),
+                _machines = _machines.ToDictionary(e => e.Key, e => e.Value.Clone()),
+                _startTime = _startTime,
                 BaseGene = new List<int>(BaseGene)
             };
         }

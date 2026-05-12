@@ -4,17 +4,16 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using ErrorOr;
-using static OOP_Project.Dictionaries;
 
 namespace OOP_Project
 {
-    interface IFileReader
+    // Interface for future implementation of file types e.g. JSON
+    public interface IFileReader
     {
         public ErrorOr<string[,]> ReadFile(string filePath);
     }
 
-
-    class CSVReader : IFileReader
+    public class CSVReader : IFileReader
     {
         public ErrorOr<string[,]> ReadFile(string filePath)
         {
@@ -27,13 +26,18 @@ namespace OOP_Project
 
                 var lines = File.ReadAllLines(filePath);
 
+                if (lines.Length < 2) {
+                    return Error.NotFound(description: "File does not contain valid data");
+                }
+
                 // Gets the headers and validates them against the header dictionary
                 string[] headers = lines[0].Split(',');
                 ErrorOr<int[]> headerIndexs = headerOrder(headers);
-                if (headerIndexs.IsError){ return headerIndexs.Errors; }
+                if (headerIndexs.IsError) { return headerIndexs.Errors; }
 
                 string[,] data = new string[lines.Length, headerIndexs.Value.Length];
 
+                // Map header names to the first row of the data array
                 for (int i = 0; i < headerIndexs.Value.Length; i++)
                 {
                     data[0, i] = headers[headerIndexs.Value[i]];
@@ -50,14 +54,12 @@ namespace OOP_Project
                 }
 
                 return data;
-
             }
             catch (Exception ex)
             {
                 return Error.Unexpected(description: ex.Message);
             }
         }
-
 
         // Checks each header against the dictionary and returns an array of the corresponding indices.
         // Used to determine the order of the headers.
@@ -71,12 +73,12 @@ namespace OOP_Project
                 string trimmed = header.Trim().ToLower();
 
                 // Check if the header is recognized. If not, return an error.
-                if (!Dictionaries.HeaderDict.ContainsKey(trimmed))
+                if (!Globals.HeaderDict.ContainsKey(trimmed))
                 {
                     return Error.NotFound(description: $"Header '{trimmed}' is not recognized.");
                 }
 
-                indexArray[index] = Dictionaries.HeaderDict[trimmed];
+                indexArray[index] = Globals.HeaderDict[trimmed];
                 index++;
             }
 
@@ -84,5 +86,3 @@ namespace OOP_Project
         }
     }
 }
-
-

@@ -9,6 +9,7 @@ namespace OOP_Project
 {
     internal class ErrorHandler
     {
+        private static bool _debugMode = false;
 
         /*
          C - Critical Error: A server issue that will return the algorithm to it's nearest safe state
@@ -23,11 +24,10 @@ namespace OOP_Project
                 switch (severity)
                 {
                     case 'C':
-                        Critical(errorMessage);
-                        //Debug.Log($"Crit: {errorMessage}");
+                        if (_debugMode) { Critical(errorMessage); }
                         return true;
                     case 'W':
-                        Warning(errorMessage);
+                        if (_debugMode) { Warning(errorMessage); }
                         return true;
                     default:
                         return true;
@@ -36,16 +36,15 @@ namespace OOP_Project
             return false; 
         }
 
+        // CODE USED FOR DEBUGGING 
         public static void Critical(string message)
         {
             Console.WriteLine($"CRITICAL ERROR: {message}");
-            // Additional logic for critical errors (e.g., logging, alerting) can be added here
         }
 
         public static void Warning(string message)
         {
             Console.WriteLine($"WARNING: {message}");
-            // Additional logic for warnings (e.g., logging) can be added here
         }
     }
 }

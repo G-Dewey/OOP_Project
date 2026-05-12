@@ -7,7 +7,7 @@ using ErrorOr;
 
 namespace OOP_Project
 {
-    internal class Schedule
+    public class Schedule
     {
         private string[] _machines { get; set; }
         private List<List<string>> _schedule { get; set; } = new List<List<string>>();
@@ -54,8 +54,9 @@ namespace OOP_Project
                 {
                     ErrorOr<string> EORoperation = jobShop.CheckMachine(machine, time);
 
-                    // Improve error handling
-                    if (ErrorHandler.CheckError(EORoperation, 'C')) { //Debug.Log("Error with getting operation"); return;
+
+                    if (ErrorHandler.CheckError(EORoperation, 'C')) {
+                        continue;
                     }
 
                     row.Add(EORoperation.Value);
